@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<!--
+  変異導入プライマー設計ツール（Q5方式・計算の途中つき）
+  Copyright (c) 2026 アタリバ (@atariba_lab). All rights reserved. 無断転載・再配布を禁じます。
+  これはオープンソースソフトウェアではありません。ソースは閲覧できますが、
+  複製・改変・再配布・商用利用の許諾は与えていません。
+
+  研究・実験・学習用の補助ツールです。診断・治療などの医療目的には使用できません。
+  設計結果の正しさは保証されません。注文・実験の前に配列を必ず目視で確認してください。
+  非公式のツールであり、各キットの製造元とは関係がありません。
+  Q5 / QuikChange / Phusion / PrimeSTAR / KOD などは各権利者の商標です。
+
+  計算の根拠（パラメータ値は論文に記載された数値を使用。コードは自作）:
+    SantaLucia J Jr. PNAS 1998;95:1460-1465.（最近接パラメータ・塩補正）
+    von Ahsen N, Wittwer CT, Schutz E. Clin Chem 2001;47:1956-1961.（Mg2+のNa+換算）
+    Allawi HT & SantaLucia J Jr. Biochemistry 1997;36:10581 / 1998;37:2170 / 1998;37:9435;
+      Nucleic Acids Res 1998;26:2694（ミスマッチ用パラメータ）
+    Peyret N et al. Biochemistry 1999;38:3468-3477（同上）
+    ミスマッチ用パラメータ表の転記ミスを避けるため、Biopython(BSDライセンス)の
+      Bio.SeqUtils.MeltingTemp.DNA_IMM1 に収載された表を参照した。コードは流用していない。
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:;">
+<title>変異導入プライマー設計（Q5方式・計算の途中つき）</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1f2328;--mut:#5f6872;--card:#fff;--bd:#d8dce0;--ac:#1d6b57;--acbg:#e5f2ee;--warn:#9a5b00;--warnbg:#fff4de;--ok:#1d6b57;--err:#a12a2a;--errbg:#fdeaea;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#16181a;--fg:#e8eaec;--mut:#9aa3ab;--card:#1f2326;--bd:#363c41;--ac:#5cc4a6;--acbg:#1c3029;--warn:#f0b455;--warnbg:#33290f;--ok:#5cc4a6;--err:#ff8b8b;--errbg:#3a1d1d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:21px;margin:0 0 4px}
+h2{font-size:16px;margin:0 0 10px}
+.sub{color:var(--mut);margin:0 0 16px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin:14px 0}
+label{display:block;font-weight:600;font-size:13.5px;margin:10px 0 4px}
+textarea,select,input[type=text],input[type=number]{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:7px;background:var(--bg);color:var(--fg);font:14px var(--mono)}
+textarea{min-height:110px;resize:vertical}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1 1 150px}
+button{font:inherit;font-size:14px;padding:8px 16px;border-radius:7px;border:1px solid var(--ac);background:var(--ac);color:#fff;cursor:pointer}
+button.sec{background:transparent;color:var(--ac)}
+@media(prefers-color-scheme:dark){button{color:#0d1a15}button.sec{color:var(--ac)}}
+.hint{color:var(--mut);font-size:12.5px;margin:3px 0 0}
+.seq{font-family:var(--mono);word-break:break-all;font-size:14px}
+.m{background:var(--warnbg);color:var(--warn);font-weight:700;border-radius:3px;padding:0 1px}
+.f5{color:var(--mut)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600}
+td.n{font-family:var(--mono);text-align:right}
+ul{padding-left:0;list-style:none;margin:6px 0}
+li.ok::before{content:"✅ "}li.warn::before{content:"⚠️ "}
+li.warn{color:var(--warn)}
+.err{background:var(--errbg);color:var(--err);border-radius:8px;padding:10px 12px;margin:10px 0}
+details{margin:8px 0}summary{cursor:pointer;color:var(--ac);font-weight:600}
+.note{font-size:13px;color:var(--mut)}
+.pass{color:var(--ok)}.fail{color:var(--err);font-weight:700}
+.ta{background:#eef6ee;border:1px solid #b9d9b9;border-radius:7px;padding:8px 10px;margin:8px 0}
+.map{font-family:var(--mono);font-size:12.5px;overflow-x:auto;white-space:pre;background:var(--bg);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;line-height:1.5}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+<h1>変異導入プライマー設計（Q5方式・置換）</h1>
+<p class="sub">背中合わせ（back-to-back）プライマーを設計し、長さ・Tmを決めた理由と計算の途中をすべて表示します。入力した配列は、このページの外へ送信されません。</p>
+<p class="sub"><b>研究・実験・学習のための補助ツールです。</b>疾患の診断、治療方針の決定、その他の医療行為には使用できません（医療機器ではありません）。</p>
+
+<div class="card">
+<h2>1. 入力</h2>
+<label for="tpl">テンプレート配列（プラスミドの該当部分。FASTA形式・空白・番号つきも可）</label>
+<textarea id="tpl" spellcheck="false" placeholder="ATGC..."></textarea>
+<div class="hint" id="tplinfo"></div>
+<div class="row">
+<div><label for="pos">変異の開始位置（1始まり）</label><input type="number" id="pos" min="1" value="100"></div>
+<div><label for="nw">置換後の塩基（連続した置換）</label><input type="text" id="nw" value="GCT" spellcheck="false"></div>
+</div>
+<div class="hint" id="wtinfo"></div>
+<div class="row"><div style="flex-basis:100%"><label for="preset">使うポリメラーゼ・緩衝液</label><select id="preset"></select><div class="hint" id="presetnote"></div></div></div>
+<details>
+<summary>計算の条件（変更できます）</summary>
+<div class="row">
+<div><label for="mono">Na⁺・K⁺ (mM)</label><input type="number" id="mono" value="50" step="any"></div>
+<div><label for="mg">Mg²⁺ (mM)</label><input type="number" id="mg" value="2" step="any"></div>
+<div><label for="dntp">dNTP合計 (mM)</label><input type="number" id="dntp" value="0.8" step="any"></div>
+<div><label for="primer">プライマー濃度 (nM)</label><input type="number" id="primer" value="500" step="any"></div>
+</div>
+<div class="row">
+<div><label for="target">目標Tm (℃)</label><input type="number" id="target" value="56" step="any"></div>
+<div><label for="f5">変異の5′側の長さ (nt)</label><input type="number" id="f5" value="10" min="4" max="30"><div class="hint">6 nt以上の置換では、変異をFwdの5′端に置きます（0 nt）</div></div>
+<div title="文献の表にないミスマッチ（連続など）のときだけ使う近似です"><label for="mm">近似用のミスマッチ補正 (℃/塩基)</label><input type="number" id="mm" value="4" step="any" min="0"></div>
+<div><label for="mmcap">近似用の補正の上限 (℃)</label><input type="number" id="mmcap" value="10" step="any" min="0"></div>
+<div><label for="bal">Fwd・RevのTm差の上限 (℃)</label><input type="number" id="bal" value="5" step="any" min="0"></div>
+<div><label for="taoff">アニーリング温度の補正 (℃)</label><input type="number" id="taoff" value="1" step="any"><div class="hint">低い方のTmに足す値。50〜72℃に収めます</div></div>
+<div style="flex-basis:100%"><label style="font-weight:400"><input type="checkbox" id="ww"> 置換の窓全体を変異として扱う（窓の中に元と同じ塩基があっても、すべてミスマッチとみなす近似。NEBaseChangerなど、窓全体を変異とする方式に近づけたいとき）</label></div>
+<div style="flex-basis:100%"><label style="font-weight:400"><input type="checkbox" id="circ"> 環状プラスミドとして扱う（配列の両端をつなぐ）</label></div>
+</div>
+<p class="hint">既定値はQ5緩衝液の一般的な組成を仮定した値です。お使いの緩衝液に合わせて変更してください。</p>
+</details>
+<div class="bar"><button id="go">設計する</button><button class="sec" id="demo">デモ配列を入れる</button></div>
+</div>
+
+<div id="result"></div>
+
+<div class="card">
+<h2>検証（自己テスト）</h2>
+<p class="note">計算の実装ミスを見つけるためのテストです。ブラウザの中で実行されます。</p>
+<button class="sec" id="runtest">自己テストを実行</button>
+<div id="testout"></div>
+</div>
+
+<div class="card note">
+<h2>このツールの前提と限界</h2>
+<ul style="list-style:disc;padding-left:20px">
+<li>対象はQ5 Site-Directed Mutagenesis Kit方式（Fwdに変異、Revは変異なし、5′端どうしが背中合わせ、プライマーどうしは重ならない）の<b>連続した塩基の置換</b>のみです。挿入・欠失、QuikChange方式は未対応です。</li>
+<li>Tmは最近接法（SantaLucia 1998のパラメータ）にMg²⁺のNa⁺換算補正（von Ahsen 2001）を加えた値です。<b>FwdのTmは、置換が6 nt未満で、ミスマッチが文献の表（Allawi &amp; SantaLucia 1997・1998、Peyret ほか 1999）にある組み合わせなら、ミスマッチを含む二本鎖として直接計算します。</b>ミスマッチが連続する場合や、プライマーの端から2塩基以内にある場合は表がないため、「結合部のTm − ミスマッチ補正（既定は1塩基あたり4℃、上限10℃）」という経験的な近似に切り替えます（結果の表と計算の途中に、どちらを使ったか表示します）。</li>
+<li>アニーリング温度は「低い方のTm＋補正値（既定＋1 ℃）」の簡易な目安です。ポリメラーゼ・緩衝液ごとの補正は入っていません。製造元が推奨する値や計算ツールがあればそちらを優先し、勾配PCRで確認してください。</li>
+<li>置換の窓（例：3塩基）の一部だけが元と変わる場合、既定では<b>実際に変わる塩基だけ</b>をミスマッチとして計算します。「置換の窓全体を変異として扱う」にチェックすると、窓の全塩基をミスマッチとみなす近似になり、窓全体を変異とする他のツールに近い設計になります（結合が弱く見積もられ、Fwdが長めになる傾向があります）。この設定は経験的な近似です。</li>
+<li>ヘアピン・ダイマーの判定は簡易的な目安です。注文前に、配列を別のツールでも確認することをおすすめします。</li>
+<li><b>研究・実験・学習用の補助ツールで、診断・治療などの医療目的には使用できません。</b>設計結果の正しさは保証されません。結果を使って生じた実験上の損害（試薬代・時間の損失など）について、作者は責任を負いません。</li>
+<li>これは非公式のツールで、Q5 Site-Directed Mutagenesis Kit の製造元とは関係がありません。Q5は各権利者の商標です。</li>
+<li>注文・実験の前に、変異位置と配列を必ず目で確認してください（結果の責任は使用者にあります）。</li>
+</ul>
+</div>
+<footer style="margin:24px 0 8px;padding-top:12px;border-top:1px solid #ddd;font-size:12px;color:#666;line-height:1.7">
+<p>変異導入プライマー設計ツール　&copy; 2026 アタリバ (@atariba_lab)　無断転載・再配布を禁じます。<br>
+オープンソースソフトウェアではありません。ソースは閲覧できますが、複製・改変・再配布・商用利用の許諾は与えていません。</p>
+<p>研究・実験・学習用の補助ツールです。<b>診断・治療などの医療目的には使用できません。</b>設計結果の正しさは保証されず、結果の利用により生じた損害について著者は責任を負いません。注文・実験の前に、変異位置と配列を必ず目視で確認してください。</p>
+<p>非公式のツールであり、各キットの製造元とは関係がありません。Q5、QuikChange、Phusion、PrimeSTAR、KOD などは各権利者の商標です。</p>
+<p>Tm計算の根拠：SantaLucia 1998 (PNAS)／von Ahsen ほか 2001 (Clin Chem)／Allawi &amp; SantaLucia 1997,1998／Peyret ほか 1999。ミスマッチ用パラメータ表は Biopython (BSDライセンス) の収載表を参照（コードは自作）。</p>
+</footer>
+</main>
+<script>
+// ===== コア：Tm計算（SantaLucia 1998）とQ5方式プライマー設計 =====
+const NN_TABLE = {
+  'AA/TT': { dH: -7.9,  dS: -22.2, g37: -1.00 },
+  'AT/TA': { dH: -7.2,  dS: -20.4, g37: -0.88 },
+  'TA/AT': { dH: -7.2,  dS: -21.3, g37: -0.58 },
+  'CA/GT': { dH: -8.5,  dS: -22.7, g37: -1.45 },
+  'GT/CA': { dH: -8.4,  dS: -22.4, g37: -1.44 },
+  'CT/GA': { dH: -7.8,  dS: -21.0, g37: -1.28 },
+  'GA/CT': { dH: -8.2,  dS: -22.2, g37: -1.30 },
+  'CG/GC': { dH: -10.6, dS: -27.2, g37: -2.17 },
+  'GC/CG': { dH: -9.8,  dS: -24.4, g37: -2.24 },
+  'GG/CC': { dH: -8.0,  dS: -19.9, g37: -1.84 }
+};
+const NN_KEY = {
+  AA:'AA/TT', TT:'AA/TT', AT:'AT/TA', TA:'TA/AT', CA:'CA/GT', TG:'CA/GT',
+  GT:'GT/CA', AC:'GT/CA', CT:'CT/GA', AG:'CT/GA', GA:'GA/CT', TC:'GA/CT',
+  CG:'CG/GC', GC:'GC/CG', GG:'GG/CC', CC:'GG/CC'
+};
+const INIT_GC = { dH: 0.1, dS: -2.8 };
+const INIT_AT = { dH: 2.3, dS: 4.1 };
+const SYM_DS = -1.4;
+const R_GAS = 1.9872; // cal/(mol*K)
+
+// ミスマッチを含む隣接塩基対のパラメータ（1 M NaCl）。キー「XY/ZW」は 5′-XY-3′（プライマー）と、
+// 対応するテンプレート鎖の塩基 ZW（3′→5′の向き）。Watson-Crickの値に代わって、その隣接部分に使う。
+// 出典：Allawi & SantaLucia (1997) Biochemistry 36:10581（G·T）、(1998) Biochemistry 37:2170（G·A）、
+//   (1998) Biochemistry 37:9435（A·C）、(1998) Nucleic Acids Res 26:2694（C·T）、
+//   Peyret et al. (1999) Biochemistry 38:3468（A·A, C·C, G·G, T·T）。
+// 数値はBiopython（Bio.SeqUtils.MeltingTemp.DNA_IMM1）にまとめられた表からプログラムで抜き出した。
+const IMM_TABLE = {
+  'AG/TT': [1.0, 0.9], 'AT/TG': [-2.5, -8.3], 'CG/GT': [-4.1, -11.7], 'CT/GG': [-2.8, -8.0],
+  'GG/CT': [3.3, 10.4], 'GG/TT': [5.8, 16.3], 'GT/CG': [-4.4, -12.3], 'GT/TG': [4.1, 9.5],
+  'TG/AT': [-0.1, -1.7], 'TG/GT': [-1.4, -6.2], 'TT/AG': [-1.3, -5.3], 'AA/TG': [-0.6, -2.3],
+  'AG/TA': [-0.7, -2.3], 'CA/GG': [-0.7, -2.3], 'CG/GA': [-4.0, -13.2], 'GA/CG': [-0.6, -1.0],
+  'GG/CA': [0.5, 3.2], 'TA/AG': [0.7, 0.7], 'TG/AA': [3.0, 7.4], 'AC/TT': [0.7, 0.2],
+  'AT/TC': [-1.2, -6.2], 'CC/GT': [-0.8, -4.5], 'CT/GC': [-1.5, -6.1], 'GC/CT': [2.3, 5.4],
+  'GT/CC': [5.2, 13.5], 'TC/AT': [1.2, 0.7], 'TT/AC': [1.0, 0.7], 'AA/TC': [2.3, 4.6],
+  'AC/TA': [5.3, 14.6], 'CA/GC': [1.9, 3.7], 'CC/GA': [0.6, -0.6], 'GA/CC': [5.2, 14.2],
+  'GC/CA': [-0.7, -3.8], 'TA/AC': [3.4, 8.0], 'TC/AA': [7.6, 20.2], 'AA/TA': [1.2, 1.7],
+  'CA/GA': [-0.9, -4.2], 'GA/CA': [-2.9, -9.8], 'TA/AA': [4.7, 12.9], 'AC/TC': [0.0, -4.4],
+  'CC/GC': [-1.5, -7.2], 'GC/CC': [3.6, 8.9], 'TC/AC': [6.1, 16.4], 'AG/TG': [-3.1, -9.5],
+  'CG/GG': [-4.9, -15.3], 'GG/CG': [-6.0, -15.8], 'TG/AG': [1.6, 3.6], 'AT/TT': [-2.7, -10.8],
+  'CT/GT': [-5.0, -15.8], 'GT/CT': [-2.2, -8.4], 'TT/AT': [0.2, -1.5]
+};
+
+function revcomp(s) {
+  const c = { A:'T', T:'A', G:'C', C:'G' };
+  let o = '';
+  for (let i = s.length - 1; i >= 0; i--) o += c[s[i]];
+  return o;
+}
+function gcPercent(s) {
+  let n = 0;
+  for (const ch of s) if (ch === 'G' || ch === 'C') n++;
+  return s.length ? 100 * n / s.length : 0;
+}
+
+// opts: { mono(mM), mg(mM), dntp(mM, 合計), primer(nM) }
+// ann を渡すと、seq（プライマー）と ann（テンプレート上のその部分、上側の鎖と同じ向きの配列）が
+// 異なる位置をミスマッチとして計算する。端から2塩基以内のミスマッチ、表にない隣接（連続ミスマッチなど）は
+// 計算できないので { covered:false } を返す。
+function calcTm(seq, opts, ann) {
+  const L = seq.length;
+  if (L < 8) return { tm: NaN, error: '短すぎます（8塩基以上）', L };
+  const comp = { A:'T', T:'A', G:'C', C:'G' };
+  const mism = !!ann && ann !== seq;
+  if (mism) {
+    if (ann.length !== L) return { tm: NaN, covered: false, error: '配列の長さが違います', L };
+    for (let i = 0; i < L; i++) if (seq[i] !== ann[i] && (i < 2 || i > L - 3)) return { tm: NaN, covered: false, error: '端から2塩基以内のミスマッチは計算できません', L };
+  }
+  const counts = {};
+  const mmSteps = [];
+  let dH = 0, dS = 0;
+  for (let i = 0; i < L - 1; i++) {
+    if (mism && (seq[i] !== ann[i] || seq[i + 1] !== ann[i + 1])) {
+      const key = seq.substr(i, 2) + '/' + comp[ann[i]] + comp[ann[i + 1]];
+      const rkey = key.split('').reverse().join('');
+      const v = IMM_TABLE[key] || IMM_TABLE[rkey];
+      if (!v) return { tm: NaN, covered: false, error: '表にないミスマッチの組み合わせ ' + key, L };
+      mmSteps.push({ key: IMM_TABLE[key] ? key : rkey, pos: i + 1, dH: v[0], dS: v[1] });
+      dH += v[0]; dS += v[1];
+      continue;
+    }
+    const key = NN_KEY[seq.substr(i, 2)];
+    counts[key] = (counts[key] || 0) + 1;
+    dH += NN_TABLE[key].dH;
+    dS += NN_TABLE[key].dS;
+  }
+  const ends = [seq[0], seq[L - 1]].map(b => (b === 'G' || b === 'C') ? INIT_GC : INIT_AT);
+  const initH = ends[0].dH + ends[1].dH;
+  const initS = ends[0].dS + ends[1].dS;
+  dH += initH; dS += initS;
+  const selfComp = !mism && (seq === revcomp(seq));
+  const symS = selfComp ? SYM_DS : 0;
+  dS += symS;
+  const dS1M = dS;
+  // 2価イオン補正：Na+換算（von Ahsen 2001）。Mg>dNTPのときのみ
+  const free = Math.max(opts.mg - opts.dntp, 0);
+  const naEq = opts.mono + 120 * Math.sqrt(free); // mM
+  const saltS = 0.368 * (L - 1) * Math.log(naEq / 1000);
+  dS += saltS;
+  const C = opts.primer * 1e-9; // プライマー過剰（テンプレートは無視できる）
+  const tm = (dH * 1000) / (dS + R_GAS * Math.log(C)) - 273.15;
+  return { tm, L, covered: true, mmSteps, counts, initH, initS, symS, dH, dS1M, saltS, dS, naEq, C, selfComp, gc: gcPercent(seq) };
+}
+
+function longestSelfComp(s) {
+  const rc = revcomp(s);
+  let best = 0;
+  for (let i = 0; i < s.length; i++) {
+    for (let len = best + 1; i + len <= s.length; len++) {
+      if (rc.indexOf(s.substr(i, len)) >= 0) best = len; else break;
+    }
+  }
+  return best;
+}
+
+function cleanSeq(raw) {
+  return raw.split(/\r?\n/).filter(l => !l.trim().startsWith('>')).join('')
+    .replace(/[\s\d]/g, '').toUpperCase();
+}
+
+const DEFAULTS = { mono: 50, mg: 2, dntp: 0.8, primer: 500, targetTm: 56, flank5: 10, mmPenalty: 4, mmCap: 10, minRev: 15, balance: 5, wholeWindow: false, taOffset: 1, taMin: 50, taMax: 72, circular: false };
+
+function design(seqRaw, pos1, newRaw, o) {
+  o = Object.assign({}, DEFAULTS, o || {});
+  const seq = cleanSeq(seqRaw);
+  const nw = cleanSeq(newRaw);
+  const out = { ok: false, errors: [], warnings: [], opts: o };
+  if (!seq) { out.errors.push('テンプレート配列を入力してください。'); return out; }
+  if (/[^ACGT]/.test(seq)) { out.errors.push('テンプレートにA/C/G/T以外の文字があります（N、U、ギャップなど）。'); return out; }
+  if (!nw) { out.errors.push('置換後の塩基を入力してください。'); return out; }
+  if (/[^ACGT]/.test(nw)) { out.errors.push('置換後の配列はA/C/G/Tのみ使えます。'); return out; }
+  if (!Number.isInteger(pos1) || pos1 < 1) { out.errors.push('変異の開始位置は1以上の整数で入力してください。'); return out; }
+  const n = seq.length, k = nw.length;
+  if (pos1 + k - 1 > n) { out.errors.push(`変異が配列の外にはみ出しています（配列長 ${n}、変異 ${pos1}〜${pos1 + k - 1}）。`); return out; }
+  const base = o.circular ? n : 0;
+  const S = o.circular ? seq + seq + seq : seq;
+  const m0 = base + pos1 - 1;
+  const wt = S.substr(m0, k);
+  if (wt === nw) { out.errors.push('置換後の配列が元の配列と同じです。'); return out; }
+  out.n = n; out.wt = wt; out.nw = nw; out.pos1 = pos1; out.k = k;
+  let diff = 0; for (let i = 0; i < k; i++) if (wt[i] !== nw[i]) diff++;
+  out.diff = diff;
+  // 6 nt以上の置換は、変異をFwdの5′端に置く（NEBの出力例に合わせた方針）
+  const tailMode = k >= 6;
+  const a = tailMode ? 0 : o.flank5;
+  out.tailMode = tailMode;
+  const fs = m0 - a;
+  if (fs < 0) { out.errors.push(`変異の5'側の配列が足りません（${a}塩基必要）。5'側の長さを減らすか、環状として扱ってください。`); return out; }
+  const mEnd = m0 + k;
+  // --- フォワード ---
+  // 結合部 = 5′側の元配列 + 変異部分を「元の配列」に戻したもの + 3′側。ミスマッチ1塩基あたり mmPenalty ℃を引く
+  // 「窓全体を変異として扱う」: 入力した置換窓のうち一部の塩基が元と同じでも、窓の全塩基を変異とみなす（NEBaseChangerの方式に近い）。
+  // 窓に変わらない塩基が含まれるときだけ働く。全塩基が変わるときは通常どおり。
+  const ww = !!o.wholeWindow && diff < k && !tailMode;
+  out.wholeWindow = ww;
+  const pen = tailMode ? 0 : Math.min(o.mmCap, (ww ? k : diff) * o.mmPenalty);
+  const annOf = b => tailMode ? S.substr(mEnd, b) : S.substr(fs, a + k + b);
+  const primerOf = b => S.substr(fs, a) + nw + S.substr(mEnd, b);
+  // FwdのTm：6 nt未満の置換は、ミスマッチを含む二本鎖を文献のパラメータで直接計算する。
+  // 端に近い・連続するなど表にないミスマッチのときだけ、従来の近似（結合部のTm − 補正）に戻す。
+  const fwdTmOf = b => {
+    const annSeq = annOf(b);
+    if (!tailMode && !ww) {
+      const t = calcTm(primerOf(b), o, annSeq);
+      if (t.covered && isFinite(t.tm)) return { tm: t.tm, ann: t, penalty: 0, annSeq, method: 'mismatch-nn' };
+    }
+    const t0 = calcTm(annSeq, o);
+    return { tm: t0.tm - pen, ann: t0, penalty: pen, annSeq, method: tailMode ? 'tail' : (ww ? 'window' : 'heuristic') };
+  };
+  const minB = 10;
+  let b = minB, found = false;
+  while (mEnd + b <= S.length && a + k + b <= 60) {
+    if (fwdTmOf(b).tm >= o.targetTm) { found = true; break; }
+    b++;
+  }
+  if (!found) { out.errors.push('3\'側の配列が足りないか、目標Tmに届く長さ（全長60塩基以内）が見つかりませんでした。目標Tmを下げてください。'); return out; }
+  const bTm = b;
+  let extraF = 0;
+  for (let e = 0; e <= 3 && mEnd + b + e <= S.length; e++) {
+    const ch = S[mEnd + b + e - 1];
+    if (ch === 'G' || ch === 'C') { extraF = e; break; }
+  }
+  b += extraF;
+  const seg5 = S.substr(fs, a);
+  const seg3 = S.substr(mEnd, b);
+  const fwd = seg5 + nw + seg3;
+  const fwdTm = Object.assign(fwdTmOf(b), { tm3: seg3.length >= 8 ? calcTm(seg3, o).tm : NaN });
+  // --- リバース（フォワードの5′端の直前から背中合わせ） ---
+  let c = o.minRev, foundR = false;
+  // Revは、目標Tmに届き、かつFwdのTmとの差が balance ℃以内になる最小の長さ
+  const revNeed = Math.max(o.targetTm, fwdTm.tm - o.balance);
+  while (fs - c >= 0 && c <= 45) {
+    const t = calcTm(revcomp(S.substr(fs - c, c)), o);
+    if (t.tm >= revNeed) { foundR = true; break; }
+    c++;
+  }
+  if (!foundR) { out.errors.push('リバースプライマーを置く上流の配列が足りません。環状として扱うか、配列を長めに貼ってください。'); return out; }
+  const cTm = c;
+  let extraR = 0;
+  for (let e = 0; e <= 3 && fs - c - e >= 0; e++) {
+    const ch = S[fs - c - e];
+    if (ch === 'G' || ch === 'C') { extraR = e; break; }
+  }
+  c += extraR;
+  const revTemplate = S.substr(fs - c, c);
+  const rev = revcomp(revTemplate);
+  const revTm = calcTm(rev, o);
+  const mod = x => ((x % n) + n) % n;
+  out.fwd = {
+    name: 'Fwd', seq: fwd, len: fwd.length, seg5, mut: nw, seg3,
+    tm: fwdTm.tm, tmInfo: fwdTm, gc: gcPercent(fwd),
+    from: mod(fs) + 1, to: mod(fs + fwd.length - 1) + 1, bTm, extra: extraF
+  };
+  out.rev = {
+    name: 'Rev', seq: rev, len: rev.length, tm: revTm.tm, tmInfo: revTm, gc: gcPercent(rev),
+    from: mod(fs - 1) + 1, to: mod(fs - c) + 1, cTm, extra: extraR
+  };
+  out.dTm = Math.abs(out.fwd.tm - out.rev.tm);
+  // --- 目安のアニーリング温度：低い方のTm + 補正値、taMin〜taMaxに収める ---
+  {
+    const lowSide = out.fwd.tm <= out.rev.tm ? 'Fwd' : 'Rev';
+    const lowTm = Math.min(out.fwd.tm, out.rev.tm);
+    const raw = lowTm + o.taOffset;
+    const val = Math.min(o.taMax, Math.max(o.taMin, raw));
+    out.ta = { value: val, raw, lowTm, lowSide, offset: o.taOffset, min: o.taMin, max: o.taMax,
+               capped: raw > o.taMax + 1e-9 ? 'max' : (raw < o.taMin - 1e-9 ? 'min' : null) };
+  }
+  // --- チェック ---
+  const chk = (p, label) => {
+    const r = [];
+    const add = (level, text) => r.push({ level, text });
+    if (p.len > 45) add('warn', `${label}：全長${p.len}塩基。45塩基を超えると合成誤りが増えるため、PAGE精製を検討してください。`);
+    if (p.gc < 40 || p.gc > 60) add('warn', `${label}：GC含量 ${p.gc.toFixed(0)}%（目安は40〜60%）。`);
+    else add('ok', `${label}：GC含量 ${p.gc.toFixed(0)}%（40〜60%の範囲内）。`);
+    const last = p.seq[p.seq.length - 1];
+    if (last !== 'G' && last !== 'C') add('warn', `${label}：3'末端が${last}です（G/Cで終わるのが目安）。`);
+    else add('ok', `${label}：3'末端が${last}（G/Cクランプ）。`);
+    const hp = p.seq.match(/A{4,}|C{4,}|G{4,}|T{4,}/);
+    if (hp) add('warn', `${label}：${hp[0]} の連続があります（同じ塩基4個以上）。`);
+    const sc = longestSelfComp(p.seq);
+    if (sc >= 6) add('warn', `${label}：自己相補的な配列が最大${sc}塩基あります（ヘアピン・セルフダイマーの可能性。目安のみ）。`);
+    else add('ok', `${label}：自己相補的な配列は最大${sc}塩基（6塩基未満）。`);
+    return r;
+  };
+  out.checks = [...chk(out.fwd, 'Fwd'), ...chk(out.rev, 'Rev')];
+  const cross = (x, y, lx, ly) => {
+    const tail = x.slice(-4);
+    return y.indexOf(revcomp(tail)) >= 0 ? `${lx}の3'末端4塩基が${ly}と相補的です（プライマー間ダイマーの可能性）。` : null;
+  };
+  const cd = [cross(fwd, rev, 'Fwd', 'Rev'), cross(rev, fwd, 'Rev', 'Fwd')].filter(Boolean);
+  if (cd.length) cd.forEach(t => out.checks.push({ level: 'warn', text: t })); else out.checks.push({ level: 'ok', text: 'FwdとRevの3\'末端どうしの相補性は見つかりませんでした。' });
+  if (out.dTm > o.balance + 1e-9) out.checks.push({ level: 'warn', text: `FwdとRevのTm差が${out.dTm.toFixed(1)}℃です（上限${o.balance}℃）。` });
+  else out.checks.push({ level: 'ok', text: `FwdとRevのTm差は${out.dTm.toFixed(1)}℃（上限${o.balance}℃以内）。` });
+  if (diff >= 4) out.checks.push({ level: 'warn', text: `変異が${diff}塩基あります。ミスマッチが多いとFwdの結合が弱くなります。` });
+  out.ok = true;
+  return out;
+}
+// ポリメラーゼ／緩衝液のプリセット。Mg²⁺・dNTP・プライマー濃度は各社の公開資料にもとづく。
+// 一価陽イオンはメーカーが組成を公開していないものは50 mMと仮定（仮定の印を note に書く）。
+// taOffset は「低い方のTm」に足す値（目安）。
+const PRESETS = [
+  { id: 'q5', name: 'Q5（5X Q5 Reaction Buffer）', mono: 50, mg: 2.0, dntp: 0.8, primer: 500, taOffset: 1,
+    note: 'Mg²⁺ 2.0 mM、dNTP 各200 µM、プライマー 0.5 µM（NEBの公開資料）。一価イオンは非公開のため50 mMと仮定。Taの＋1 ℃は経験則の初期値で、NEBはNEB Tm Calculatorの値を勧めています。' },
+  { id: 'phusion', name: 'Phusion（HF／GCバッファー）', mono: 50, mg: 1.5, dntp: 0.8, primer: 500, taOffset: 3,
+    note: 'Mg²⁺ 1.5 mM、dNTP 各200 µM、プライマー 0.5 µM（Thermo Fisherの公開資料）。一価イオンは非公開のため50 mMと仮定。Taの＋3 ℃は、20 ntを超えるプライマーに対するメーカーの規則（メーカーの計算ツールのTmが前提）で、このツールのTmとは基準が違います。20 nt以下なら補正は0 ℃にしてください。' },
+  { id: 'primestar', name: 'PrimeSTAR（HS／Max／GXL）', mono: 50, mg: 1.0, dntp: 0.8, primer: 500, taOffset: 0,
+    note: 'Mg²⁺ 1 mM、dNTP 各200 µM（Takaraの公開資料）。プライマー濃度と一価イオンは非公開のため、0.5 µM・50 mMと仮定。メーカーはTmからTaを決める規則を明記していないため補正は0 ℃です（Takaraは初期値55 ℃を案内）。' },
+  { id: 'taq-std', name: 'Taq（Standard Taq Buffer）', mono: 50, mg: 1.5, dntp: 0.8, primer: 500, taOffset: -5,
+    note: '10 mM Tris-HCl、50 mM KCl、1.5 mM MgCl₂（NEBの公開資料）。dNTP 各200 µM、プライマー 0.5 µMは一般的な値の仮定。Taの−5 ℃はNEBがTaqで案内する一般則です。' },
+  { id: 'taq-pol', name: 'Taq（ThermoPol Buffer）', mono: 30, mg: 2.0, dntp: 0.8, primer: 500, taOffset: -5,
+    note: '20 mM Tris-HCl、10 mM (NH₄)₂SO₄、10 mM KCl、2 mM MgSO₄（NEBの公開資料）。一価イオンは (NH₄)₂SO₄ の2×10 mM＋KCl 10 mM＝30 mMとして計算（Trisは含めない近似）。dNTP・プライマーは一般的な値の仮定。' },
+];
+// 設計済みのプライマーを、別の条件（プリセット等）で計算し直したTm。
+function tmUnder(r, opts) {
+  const o = Object.assign({}, DEFAULTS, opts || {});
+  const fi = r.fwd.tmInfo;
+  const fwd = fi.method === 'mismatch-nn' ? calcTm(r.fwd.seq, o, fi.annSeq).tm : calcTm(fi.annSeq, o).tm - fi.penalty;
+  const rev = calcTm(r.rev.seq, o).tm;
+  const low = Math.min(fwd, rev);
+  const ta = Math.min(o.taMax, Math.max(o.taMin, low + o.taOffset));
+  return { fwd, rev, ta };
+}
+if (typeof module !== 'undefined') module.exports = { NN_TABLE, calcTm, design, revcomp, cleanSeq, DEFAULTS, gcPercent, PRESETS, tmUnder };
+
+</script>
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f1 = x => (isFinite(x) ? x.toFixed(1) : '—');
+const f2 = x => x.toFixed(2);
+
+function readOpts(){
+  return { mono:+$('mono').value, mg:+$('mg').value, dntp:+$('dntp').value, primer:+$('primer').value,
+           targetTm:+$('target').value, flank5:parseInt($('f5').value,10), mmPenalty:+$('mm').value, mmCap:+$('mmcap').value, balance:+$('bal').value, wholeWindow:$('ww').checked, taOffset:+$('taoff').value, circular:$('circ').checked };
+}
+const PFIELDS = {mono:'mono', mg:'mg', dntp:'dntp', primer:'primer', taOffset:'taoff'};
+(function initPresets(){
+  const sel = $('preset');
+  sel.innerHTML = PRESETS.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('') + '<option value="custom">カスタム（下の数値を自分で入力）</option>';
+  function apply(){
+    const p = PRESETS.find(x=>x.id===sel.value);
+    if (!p) { $('presetnote').textContent = '下の数値を直接変更しています。'; return; }
+    for (const [k,id] of Object.entries(PFIELDS)) $(id).value = p[k];
+    $('presetnote').textContent = p.note;
+  }
+  sel.addEventListener('change', apply);
+  ['mono','mg','dntp','primer','taoff'].forEach(id=>$(id).addEventListener('input', ()=>{
+    const p = PRESETS.find(x=>x.id===sel.value);
+    if (p && Object.entries(PFIELDS).some(([k,i])=>+$(i).value!==p[k])) { sel.value='custom'; $('presetnote').textContent='下の数値を直接変更しています。'; }
+  }));
+  apply();
+})();
+function updInfo(){
+  const s = cleanSeq($('tpl').value);
+  $('tplinfo').textContent = s ? `配列長 ${s.length} 塩基` + (/[^ACGT]/.test(s) ? '　⚠️ A/C/G/T以外の文字を含みます' : '') : '';
+  const pos = parseInt($('pos').value,10), nw = cleanSeq($('nw').value);
+  if (s && pos>=1 && nw && pos+nw.length-1 <= s.length) {
+    const wt = s.substr(pos-1, nw.length);
+    $('wtinfo').textContent = `位置 ${pos}〜${pos+nw.length-1} の元の配列：${wt} → ${nw}`;
+  } else $('wtinfo').textContent = '';
+}
+
+function primerSeqHtml(p){
+  if (p.name==='Fwd') return `<span class="f5">${esc(p.seg5)}</span><span class="m">${esc(p.mut)}</span>${esc(p.seg3)}`;
+  return esc(p.seq);
+}
+function nnTable(t){
+  const rows = Object.keys(t.counts).sort().map(k=>{
+    const v = NN_TABLE[k], n = t.counts[k];
+    return `<tr><td>${k}</td><td class="n">${n}</td><td class="n">${f2(v.dH)}</td><td class="n">${f2(v.dS)}</td><td class="n">${f2(n*v.dH)}</td><td class="n">${f2(n*v.dS)}</td></tr>`;
+  }).join('');
+  const mmRows = (t.mmSteps||[]).map(m=>`<tr><td>${m.key}（ミスマッチ・位置${m.pos}）</td><td class="n">1</td><td class="n">${f2(m.dH)}</td><td class="n">${f2(m.dS)}</td><td class="n">${f2(m.dH)}</td><td class="n">${f2(m.dS)}</td></tr>`).join('');
+  return `<table><tr><th>隣接塩基対</th><th>個数</th><th>ΔH (kcal/mol)</th><th>ΔS (cal/mol·K)</th><th>ΔH合計</th><th>ΔS合計</th></tr>${rows}${mmRows}
+  <tr><td>末端の補正（両端）</td><td class="n">2</td><td></td><td></td><td class="n">${f2(t.initH)}</td><td class="n">${f2(t.initS)}</td></tr>
+  ${t.selfComp?`<tr><td>自己相補の補正</td><td></td><td></td><td></td><td></td><td class="n">${f2(t.symS)}</td></tr>`:''}
+  <tr><td colspan="4"><b>1 M NaClでの合計</b></td><td class="n"><b>${f2(t.dH)}</b></td><td class="n"><b>${f2(t.dS1M)}</b></td></tr></table>
+  <p class="note">塩補正：Na⁺換算 = ${f1(t.naEq)} mM → ΔS補正 = 0.368 × (${t.L}−1) × ln(${(t.naEq/1000).toFixed(4)}) = ${f2(t.saltS)} cal/mol·K　→　ΔS = ${f2(t.dS)}<br>
+  Tm = ΔH×1000 ÷ (ΔS + R·ln C) − 273.15 = ${f2(t.dH*1000)} ÷ (${f2(t.dS)} + ${R_GAS}×ln(${t.C.toExponential(2)})) − 273.15 = <b>${f2(t.tm)} ℃</b></p>`;
+}
+function map(r){
+  const n = r.n, f = r.fwd;
+  return `Fwd  5′-${f.seg5.toLowerCase()}${f.mut}${f.seg3.toLowerCase()}-3′  （小文字：元配列と一致、大文字：置換）\nRev  5′-${r.rev.seq}-3′  （Fwdの5′端のすぐ上流から逆向きに）`;
+}
+function render(r){
+  const el = $('result');
+  if (!r.ok) { el.innerHTML = r.errors.map(e=>`<div class="err">${esc(e)}</div>`).join(''); return; }
+  const f = r.fwd, v = r.rev, o = r.opts;
+  const tsv = ['名前\t配列(5′→3′)\t長さ\tGC%\t推定Tm(℃)\t位置\t備考',
+    `${f.name}\t${f.seq}\t${f.len}\t${f.gc.toFixed(0)}\t${f1(f.tm)}\t${f.from}-${f.to}\t変異 ${r.wt}→${r.nw}（位置${r.pos1}）`,
+    `${v.name}\t${v.seq}\t${v.len}\t${v.gc.toFixed(0)}\t${f1(v.tm)}\t${v.from}-${v.to}\t5′端がFwdと背中合わせ`,
+    `目安アニーリング温度\t${f1(r.ta.value)} ℃\t\t\t\t\t低い方のTm(${r.ta.lowSide} ${f1(r.ta.lowTm)}) ${r.ta.offset>=0?'+':''}${r.ta.offset} ℃`].join('\n');
+  const checks = r.checks.map(c=>`<li class="${c.level}">${esc(c.text)}</li>`).join('');
+  el.innerHTML = `
+  <div class="card"><h2>2. 設計結果</h2>
+  <table><tr><th>名前</th><th>配列（5′→3′）</th><th>長さ</th><th>GC</th><th>推定Tm</th><th>テンプレート上の位置</th></tr>
+  <tr><td>${f.name}</td><td class="seq">${primerSeqHtml(f)}</td><td class="n">${f.len}</td><td class="n">${f.gc.toFixed(0)}%</td><td class="n">${f1(f.tm)} ℃</td><td class="n">${f.from}–${f.to}</td></tr>
+  <tr><td>${v.name}</td><td class="seq">${primerSeqHtml(v)}</td><td class="n">${v.len}</td><td class="n">${v.gc.toFixed(0)}%</td><td class="n">${f1(v.tm)} ℃</td><td class="n">${v.from}–${v.to}（逆向き）</td></tr></table>
+  <p class="note">推定Tm：Revはプライマー全体の最近接法の値、Fwdは、ミスマッチを含む二本鎖を文献のパラメータで直接計算した値です（${f.tmInfo.method==='mismatch-nn'?'今回はこの方法':f.tmInfo.method==='tail'?'今回は変異が5′端にあるため、3′側部分のTm':f.tmInfo.method==='window'?'今回は「窓全体を変異として扱う」設定のため「結合部のTm − ミスマッチ補正」の近似':'今回は表にないミスマッチのため「結合部のTm − ミスマッチ補正」の近似'}）。他の計算ツールの値とは数℃ずれることがあります。5′リン酸化は不要（KLD処理でリン酸化されます）。</p>
+  <div class="ta"><b>目安のアニーリング温度：${f1(r.ta.value)} ℃</b>（低い方のTm＝${r.ta.lowSide} ${f1(r.ta.lowTm)} ℃ ${r.ta.offset>=0?'＋':'−'} ${Math.abs(r.ta.offset)} ℃${r.ta.capped==='max'?`、上限${r.ta.max} ℃に丸め`:r.ta.capped==='min'?`、下限${r.ta.min} ℃に丸め`:''}）<br><span class="note">あくまで目安です。このツールのTmは他の計算ツールと数℃ずれることがあり、Q5は製造元のツールが高めの値を推奨する場合があります。製造元の推奨値がある場合はそちらを優先し、不安なら目安±3 ℃程度の勾配PCRで確認してください。</span></div>
+  <details><summary>他のポリメラーゼ・緩衝液で使った場合のTm（同じプライマー）</summary>
+  <table><tr><th>条件</th><th>Fwd Tm</th><th>Rev Tm</th><th>目安のTa</th></tr>
+  ${PRESETS.map(p=>{ const u = tmUnder(r, Object.assign({}, o, {mono:p.mono, mg:p.mg, dntp:p.dntp, primer:p.primer, taOffset:p.taOffset})); return `<tr><td>${esc(p.name)}</td><td class="n">${f1(u.fwd)} ℃</td><td class="n">${f1(u.rev)} ℃</td><td class="n">${f1(u.ta)} ℃</td></tr>`; }).join('')}</table>
+  <p class="note">プライマーの配列は上の設計（選んだ条件で作ったもの）のままで、塩濃度などの条件だけを変えて計算し直した値です。Taは各条件の補正値（Q5＋1、Phusion＋3、PrimeSTAR 0、Taq −5）を使った目安で、メーカーの規則はメーカー自身のTm計算が前提です。プライマーの長さは、目標Tmを満たすよう選んだ条件で決まるので、別の条件で使うなら、その条件を選んで設計し直してください。</p></details>
+  <div class="map">${esc(map(r))}</div>
+  <div class="bar"><button id="cp">表をコピー（タブ区切り・実験ノート／Excel用）</button><span class="note" id="cpmsg"></span></div>
+  <textarea id="tsv" readonly style="min-height:90px;margin-top:8px">${esc(tsv)}</textarea>
+  </div>
+
+  <div class="card"><h2>3. 注意点</h2><ul>${checks}</ul></div>
+
+  <div class="card"><h2>4. なぜこの設計か</h2>
+  <ol>
+  <li><b>変異：</b>位置 ${r.pos1}〜${r.pos1+r.k-1} の <code>${esc(r.wt)}</code> を <code>${esc(r.nw)}</code> に置換（${r.diff}塩基が変わる）。</li>
+  <li><b>Fwdの構成：</b>${r.tailMode?`置換が6 nt以上なので、変異をFwdの5′端に置き、その3′側に元配列${f.seg3.length} nt（全長 ${f.len} nt）を続けました。`:`変異の5′側に元配列を${o.flank5} nt、変異${r.k} nt、3′側に元配列${f.seg3.length} nt（全長 ${f.len} nt）。`}キットの一般的な設計方針（置換はFwdの中央付近に置き、変異の3′側に10 nt以上の完全一致を置く）に沿っています。</li>
+  <li><b>3′側の長さ：</b>10 ntから1 ntずつ伸ばし、推定Tm（${f.tmInfo.method==='tail'?'3′側部分のTm':f.tmInfo.method==='mismatch-nn'?'ミスマッチを含む二本鎖のTm。文献のミスマッチ用パラメータで直接計算':`結合部のTm − ミスマッチ補正 ${f1(f.tmInfo.penalty)} ℃（${f.tmInfo.method==='window'?r.k:r.diff}塩基 × ${o.mmPenalty} ℃、上限 ${o.mmCap} ℃）。${f.tmInfo.method==='window'?`「窓全体を変異として扱う」設定のため、窓の${r.k}塩基をすべてミスマッチとみなして近似を使用（実際に変わるのは${r.diff}塩基）`:'表にないミスマッチのため近似を使用'}`}）が目標 ${o.targetTm} ℃以上になる最小の長さ（${f.bTm} nt）にしました。${f.extra?`3′末端がG/Cになるよう、さらに${f.extra} nt伸ばしています。`:'3′末端を調整する必要はありませんでした。'}</li>
+  <li><b>Revの構成：</b>Fwdの5′端（位置 ${f.from}）のすぐ上流の位置 ${v.from} から上流側へ、Revのテンプレート鎖に相補的な配列を並べました。Fwdと5′端どうしが背中合わせになり、プライマーは重なりません。長さは、${o.minRev} nt以上で、Tmが目標以上かつFwdとの差が${o.balance} ℃以内になる最小の ${v.cTm} nt${v.extra?`に、3′末端をG/Cにするための${v.extra} ntを足した ${v.len} nt`:''}です。</li>
+  <li><b>Tm差：</b>FwdとRevの差は ${f1(r.dTm)} ℃です。</li>
+  <li><b>アニーリング温度の目安：</b>低い方のTm（${r.ta.lowSide} ${f1(r.ta.lowTm)} ℃）に補正値 ${r.ta.offset} ℃を足して ${f1(r.ta.raw)} ℃、${r.ta.capped?`${r.ta.min}〜${r.ta.max} ℃に収めて `:''}${f1(r.ta.value)} ℃としました。補正値の既定（＋1 ℃）は経験則の初期値で、根拠を保証するものではありません。</li>
+  </ol>
+  <details><summary>Fwdの推定Tmの計算の途中</summary>${f.tmInfo.method==='mismatch-nn'
+    ? `<p class="note">プライマー（5′→3′）と、テンプレート上の対応する配列：</p><p class="seq">${esc(f.seq)}<br>${esc(f.tmInfo.annSeq)}</p>${nnTable(f.tmInfo.ann)}<p class="note">推定Tm = <b>${f2(f.tm)} ℃</b>　（参考：3′側だけのTmは ${f1(f.tmInfo.tm3)} ℃）</p>`
+    : `<p class="note">結合部の配列（${r.tailMode?'3′側部分':'5′側 + 元の配列に戻した変異部分 + 3′側'}）：</p><p class="seq">${esc(f.tmInfo.annSeq)}</p>${nnTable(f.tmInfo.ann)}<p class="note">推定Tm = ${f2(f.tmInfo.ann.tm)} − ミスマッチ補正 ${f2(f.tmInfo.penalty)} = <b>${f2(f.tm)} ℃</b>　（参考：3′側だけのTmは ${f1(f.tmInfo.tm3)} ℃）</p>`}</details>
+  <details><summary>RevのTm計算の途中</summary><p class="seq">${esc(v.seq)}</p>${nnTable(v.tmInfo)}</details>
+  </div>`;
+  $('cp').onclick = function(){
+    const done = ok => $('cpmsg').textContent = ok ? 'コピーしました' : '自動コピーできませんでした。下の欄を選択してコピーしてください。';
+    try { navigator.clipboard.writeText(tsv).then(()=>done(true), ()=>{ $('tsv').select(); done(false); }); }
+    catch(e){ $('tsv').select(); done(false); }
+  };
+}
+
+function run(){
+  updInfo();
+  render(design($('tpl').value, parseInt($('pos').value,10), $('nw').value, readOpts()));
+}
+function rnd(n, seed){ let s=seed, o=''; for(let i=0;i<n;i++){ s=(s*1103515245+12345)&0x7fffffff; o+='ACGT'[(s>>16)&3]; } return o; }
+$('go').onclick = run;
+$('demo').onclick = function(){
+  const s = rnd(300, 42);
+  $('tpl').value = s.match(/.{1,60}/g).join('\n');
+  $('pos').value = 100; $('nw').value = 'GCT';
+  run();
+};
+['tpl','pos','nw'].forEach(id=>$(id).addEventListener('input', updInfo));
+
+$('runtest').onclick = function(){
+  const rows = [];
+  const add = (name, ok, detail) => rows.push(`<tr><td>${esc(name)}</td><td class="${ok?'pass':'fail'}">${ok?'合格':'不合格'}</td><td>${esc(detail||'')}</td></tr>`);
+  for (const [k,v] of Object.entries(NN_TABLE)) {
+    const g = v.dH - 310.15*v.dS/1000;
+    add(`パラメータ表の整合 ${k}`, Math.abs(g-v.g37) < 0.03, `ΔH−37℃×ΔS = ${g.toFixed(3)} kcal/mol（論文のΔG°37 ${v.g37}）`);
+  }
+  const t = calcTm('CGCGAATTCGCG', {mono:50,mg:0,dntp:0,primer:500});
+  add('手計算との一致（CGCGAATTCGCG のΔH）', Math.abs(t.dH-(-101.2))<1e-9, `計算 ${t.dH.toFixed(2)}、手計算 −101.20 kcal/mol`);
+  add('手計算との一致（同ΔS、1 M NaCl）', Math.abs(t.dS1M-(-273.8))<1e-9, `計算 ${t.dS1M.toFixed(2)}、手計算 −273.80 cal/mol·K`);
+  const s = rnd(300,42);
+  for (const [pos,nw] of [[100,'GCT'],[120,'A'],[50,'TG'],[210,'CAGT']]) {
+    const d = design(s,pos,nw,{});
+    if (!d.ok) { add(`設計 位置${pos}→${nw}`, false, d.errors.join()); continue; }
+    const f=d.fwd, v=d.rev;
+    add(`Fwdの構成が一致 位置${pos}`, f.seq === s.substr(pos-11,10)+nw+s.substr(pos-1+nw.length,f.seg3.length), `${f.len} nt`);
+    add(`Revが背中合わせ 位置${pos}`, s.substr(v.to-1, v.len)===revcomp(v.seq) && v.to-1+v.len===f.from-1, `Rev ${v.from}→${v.to}、Fwd開始 ${f.from}`);
+    add(`推定Tmが目標以上 位置${pos}`, f.tm>=56-1e-9 && v.tm>=56-1e-9, `Fwd ${f1(f.tm)} / Rev ${f1(v.tm)} ℃`);
+  }
+  const dta = design(s,100,'GCT',{});
+  add('Taは低い方のTm＋補正値（既定＋1）', dta.ok && Math.abs(dta.ta.value-(Math.min(dta.fwd.tm,dta.rev.tm)+1))<1e-9, dta.ok? `Ta ${f1(dta.ta.value)} ℃（Fwd ${f1(dta.fwd.tm)} / Rev ${f1(dta.rev.tm)}）` : dta.errors.join());
+  const dhi = design(s,100,'GCT',{taOffset:100}), dlo = design(s,100,'GCT',{taOffset:-100});
+  add('Taは50〜72℃に収まる', dhi.ok && dlo.ok && dhi.ta.value===72 && dlo.ta.value===50, `上 ${dhi.ta&&dhi.ta.value} / 下 ${dlo.ta&&dlo.ta.value}`);
+  const bseq = 'CGTTCCAAAGATGTGGGCATGAGCTTAC';
+  for (const [label, mono, mg, ref] of [['Na 50 mM', 50, 0, 60.32], ['Na 50 mM＋Tris 10 mM（Na換算55 mM）', 55, 0, 60.79], ['さらにMg²⁺ 1.5 mM', 55, 1.5, 67.39]]) {
+    const v = calcTm(bseq, {mono, mg, dntp:0, primer:12.5}).tm;
+    add(`別実装（Biopython文書の例）との一致：${label}`, Math.abs(v-ref)<0.005, `本ツール ${v.toFixed(2)} ℃、文書の値 ${ref.toFixed(2)} ℃（プライマー12.5 nM相当）`);
+  }
+  const mmP = 'CGTTCCAAAGATGTGGGCATGAGCTTAC', mmA = 'CGTTCCGAAGATGTGGGCATGAGCTTAC';
+  const tmm = calcTm(mmP, {mono:50, mg:0, dntp:0, primer:12.5}, mmA);
+  add('別実装との一致：ミスマッチ（A·C）を含む二本鎖（Biopython文書の例）', tmm.covered && Math.abs(tmm.tm-55.39)<0.005, `本ツール ${f1(tmm.tm)} ℃、文書の値 55.39 ℃`);
+  const o0 = {mono:50, mg:0, dntp:0, primer:500}, pp = 'AAAACCCCGGGGTTTTAAAA';
+  const edge = 'AAAACCCCGGGGTTTTAAAA'.slice(0,19) + 'C', adj = 'AAAACCCCGGAGTTTTAAAA'.slice(0,9) + 'AT' + 'AGTTTTAAAA';
+  add('端のミスマッチ・連続ミスマッチは計算せず近似に切り替える', calcTm(pp,o0,edge).covered===false && calcTm(pp,o0,adj).covered===false, '端から2塩基以内／連続ミスマッチは計算対象外');
+  const dsub = design(s,120,'A',{});
+  add('単一塩基置換はミスマッチ入りの直接計算を使う', dsub.ok && dsub.fwd.tmInfo.method==='mismatch-nn', dsub.ok? dsub.fwd.tmInfo.method : dsub.errors.join());
+  { // 窓全体を変異として扱う設定：窓の一部だけが変わるときに働き、全塩基が変わるときは影響しない
+    const T = 'ACGTTGCATGCCGATAGCTAGGCTAACGTTAGCCTAGGATCCGATTACGGATCCATGCAAGCTTGGCATCGATCGGATCCTAGGCATGCATCGATTTAGC';
+    const wtp = 40, w3 = T.substr(wtp-1,3);
+    const mid = w3[0] + (w3[1]==='A'?'G':'A') + w3[2];
+    const allc = [...w3].map(ch=>({A:'G',G:'A',C:'T',T:'C'}[ch])).join('');
+    const oa = {circular:true}, ob = {circular:true, wholeWindow:true};
+    const d1 = design(T, wtp, mid, oa), d2 = design(T, wtp, mid, ob), e1 = design(T, wtp, allc, oa), e2 = design(T, wtp, allc, ob);
+    add('窓全体モード：一部だけ変わる窓で働く', d2.ok && d2.wholeWindow && d2.fwd.tmInfo.method==='window' && !d1.wholeWindow, d2.ok? d2.fwd.tmInfo.method : d2.errors.join());
+    add('窓全体モード：全塩基が変わる窓には影響しない', e1.ok && e2.ok && e1.fwd.seq===e2.fwd.seq && !e2.wholeWindow, e2.ok? String(e2.wholeWindow) : e2.errors.join());
+  }
+  const dq = design(s,100,'GCT',{});
+  if (dq.ok) {
+    const q5 = PRESETS.find(p=>p.id==='q5'), tp = PRESETS.find(p=>p.id==='taq-pol');
+    const uq = tmUnder(dq, q5), ut = tmUnder(dq, tp);
+    add('プリセットQ5でのTmが設計時の値と一致', Math.abs(uq.fwd-dq.fwd.tm)<1e-9 && Math.abs(uq.rev-dq.rev.tm)<1e-9, `Fwd ${f1(uq.fwd)} / Rev ${f1(uq.rev)} ℃`);
+    add('Mg²⁺・一価イオンが多いほどTmが高い（Q5 > ThermoPol）', uq.fwd>ut.fwd && uq.rev>ut.rev, `Q5 ${f1(uq.rev)} ℃ > ThermoPol ${f1(ut.rev)} ℃（Rev）`);
+  }
+  const d6 = design(s,100,'GCTAAC',{});
+  add('6 nt以上の置換は変異がFwdの5′端', d6.ok && d6.fwd.seq.indexOf('GCTAAC')===0 && d6.fwd.seg5==='', d6.ok? d6.fwd.seq : d6.errors.join());
+  $('testout').innerHTML = `<table><tr><th>項目</th><th>結果</th><th>内容</th></tr>${rows.join('')}</table>
+  <p class="note">限界：パラメータの値は論文（SantaLucia 1998）の表を転記したものです。Tmの計算は、Biopythonの公開文書に載っている3つの例と一致することを確認しましたが、それ以外の計算ソフトや、ミスマッチを含むFwdのTm（近似）の検証は十分ではありません。</p>`;
+};
+})();
+</script>
+</body>
+</html>
