@@ -1,0 +1,96 @@
+独自ライセンス（オープンソースライセンスではありません）
+Proprietary License — NOT an open source license
+
+変異導入プライマー設計ツール（Q5方式・計算の途中つき）
+Copyright (c) 2026 アタリバ (@atariba_lab). All rights reserved.
+正式な配布元 / Canonical source: https://atariba-lab.github.io/sdm-primer-designer/
+
+────────────────────────────────────────────────────────
+
+■ 日本語
+
+1. 著作権
+   本ソフトウェア（HTMLファイル、その中のコード、文章、画面表示を含む。
+   以下「本ソフトウェア」）の著作権は著作権者に帰属します。
+
+2. 許可されること
+   (a) 本ソフトウェアを、上記の配布元のページ上で、そのまま利用すること。
+   (b) 本ソフトウェアのファイルを個人的に保存し、自分の端末のブラウザで
+       そのまま実行すること（内容を改変しないこと）。
+   (c) 本ソフトウェアのソースコードを閲覧し、学習の目的で読むこと。
+   (d) GitHubの利用規約が定める範囲での、GitHub上での閲覧およびフォーク。
+
+3. 禁止されること（著作権者の書面による事前の許諾がない限り）
+   (a) 本ソフトウェアの全部または一部の複製、改変、翻案。
+   (b) 本ソフトウェアの全部または一部の再配布、公衆送信、配信。
+       自分のウェブサイト、サーバー、アプリ、配布パッケージ等への設置を含みます。
+   (c) 本ソフトウェアの全部または一部を含む二次的著作物の作成および公開。
+   (d) 本ソフトウェアの販売、貸与、サブライセンス、その他の有償・無償の提供。
+   (e) 商用目的での利用（社内での業務利用を含む）。
+   (f) 著作権表示、免責事項、出典の表示の削除または改変。
+   (g) 本ソフトウェアを学習データとして機械学習モデルの訓練に使用すること。
+
+   第2項(d)のフォークは、GitHubの利用規約に基づくGitHub上での行為に限られます。
+   フォークしたコードをGitHubの外で公開・配布・利用することは、
+   本ライセンスでは許諾していません。
+
+4. 計算に用いるパラメータ値について
+   本ソフトウェアが用いる熱力学パラメータの数値は、公表された学術論文
+   （SantaLucia 1998 ほか。README参照）に記載されたものです。
+   これらの数値そのものは、本ライセンスの対象ではありません。
+   本ライセンスが対象とするのは、本ソフトウェアのコード、構成、文章、
+   画面表示等の表現です。
+
+5. 無保証・免責
+   本ソフトウェアは現状有姿で提供され、明示・黙示を問わず、いかなる保証も
+   ありません。設計結果の正確性、特定目的への適合性は保証されません。
+   本ソフトウェアの利用または利用不能から生じたいかなる損害についても、
+   著作権者は一切の責任を負いません。
+
+6. 用途の制限
+   本ソフトウェアは、研究・実験・学習の補助を目的としたものです。
+   診断、治療その他の医療目的に使用することはできません。
+
+7. 商標
+   本ソフトウェアは非公式のツールであり、各キットの製造元とは関係ありません。
+   Q5、QuikChange、Phusion、PrimeSTAR、KOD その他の名称は、
+   各権利者の商標です。本ソフトウェアによる言及は、各権利者による
+   推奨・提携・承認を意味するものではありません。
+
+8. 許諾の申請
+   上記の範囲を超える利用をご希望の場合は、READMEに記載の連絡先まで
+   ご相談ください。
+
+────────────────────────────────────────────────────────
+
+■ English (summary — the Japanese text above is authoritative)
+
+This is NOT open source software. All rights reserved.
+
+You MAY: use this tool as published at the canonical source above; save the
+file and run it unmodified in your own browser; read the source code for
+learning purposes; view and fork on GitHub to the extent required by the
+GitHub Terms of Service.
+
+You MAY NOT, without prior written permission: copy, modify, or adapt this
+software in whole or in part; redistribute, republish, or host it anywhere
+else; create or publish derivative works; sell, rent, or sublicense it; use
+it for commercial purposes; remove or alter the copyright notice, disclaimer,
+or citations; or use it as training data for machine learning models.
+
+Forking under clause 2(d) is limited to actions on GitHub itself. Publishing,
+distributing, or using forked code outside GitHub is not permitted.
+
+The thermodynamic parameter values used by this software are taken from
+published scientific literature (see README) and are not themselves covered
+by this license. This license covers the expression: the code, structure,
+text, and interface of this software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. For research,
+experimental, and educational support only — NOT for diagnostic, therapeutic,
+or any other medical use. The copyright holder accepts no liability for any
+damages arising from use of this software.
+
+This is an unofficial tool with no affiliation to any kit manufacturer.
+Q5, QuikChange, Phusion, PrimeSTAR, KOD and other names are trademarks of
+their respective owners.
