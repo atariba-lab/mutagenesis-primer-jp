@@ -2,7 +2,7 @@
 
 部位特異的変異導入（SDM）のプライマーを、**Tm計算の途中まで全部表示しながら**設計するブラウザ用ツールです。
 
-👉 **ツールを開く： https://atariba-lab.github.io/sdm-primer-designer/**
+👉 **ツールを開く： https://atariba-lab.github.io/mutagenesis-primer-jp/**
 
 ## 特徴
 
