@@ -78,4 +78,4 @@ GitHub上でのフォークは、GitHubの利用規約が定める範囲に限�
 ## 作者・連絡先
 
 - X: @atariba_lab
-- 開発の経緯と検証の詳細は、note記事にまとめています： （公開後に追記）
+- 紹介記事（note）： https://note.com/atariba_lab/n/n7590f16de09b
